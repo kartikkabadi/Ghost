@@ -20,14 +20,24 @@ Instead:
 
 This avoids the single-agent ceiling and makes the system easier to reason about, test, and budget.
 
-## Research loop
-1. Intake user objective
-2. Decompose into sub-questions
-3. Route each sub-question to the best provider/tool
-4. Gather evidence from multiple sources
-5. Cross-check conflicts and stale references
-6. Score confidence and identify blind spots
-7. Emit a structured report with caveats and next actions
+## Deep reasoning loop
+1. Intake the objective and define what would count as a useful answer
+2. Decompose the objective into source-specific workstreams
+3. Route each workstream to the cheapest sufficient model or tool
+4. Gather evidence in parallel where independence matters
+5. Re-ask or re-route when a source conflicts, times out, or looks stale
+6. Score confidence based on corroboration, freshness, and provenance quality
+7. Emit a final report that includes what was found, what was not found, and what remains uncertain
+
+## Reporting discipline
+The reporting engine should not only summarize. It should also publish a constraint report:
+- what the run maximized
+- what the run sacrificed
+- which sources were not examined
+- which claims remain hypothesis-level
+- what follow-up queries would close the largest gaps
+
+This is the key guardrail that keeps Ghost from sounding confident while being under-verified.
 
 ## Reporting contract
 Every report should include:
