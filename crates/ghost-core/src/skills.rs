@@ -83,13 +83,24 @@ impl SkillRegistry {
         registry.register(SkillSpec {
             id: "reasoner.xai".to_string(),
             name: "Reasoner".to_string(),
-            description: "Performs synthesis and verification passes for the current wave.".to_string(),
+            description: "Performs synthesis and analysis passes for the current wave.".to_string(),
             provider: ProviderKind::Xai,
             capability: ProviderCapability::Reason,
-            tags: vec!["reasoning".to_string(), "verification".to_string()],
+            tags: vec!["reasoning".to_string(), "synthesis".to_string()],
             input_keys: vec!["task".to_string()],
             output_keys: vec!["analysis".to_string()],
             parallelizable: true,
+        });
+        registry.register(SkillSpec {
+            id: "verifier.xai".to_string(),
+            name: "Verifier".to_string(),
+            description: "Independently validates evidence-backed claims after worker tasks complete.".to_string(),
+            provider: ProviderKind::Xai,
+            capability: ProviderCapability::Reason,
+            tags: vec!["verification".to_string(), "evidence".to_string()],
+            input_keys: vec!["evidence".to_string()],
+            output_keys: vec!["validated_claims".to_string()],
+            parallelizable: false,
         });
         registry.register(SkillSpec {
             id: "crawler.firecrawl".to_string(),

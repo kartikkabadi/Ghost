@@ -44,26 +44,25 @@ impl GhostCore {
         let broker = TaskBroker::new(contract.clone());
         let gateway = self.gateway.clone();
         let skills = self.skills.clone();
-        let store = self.store.clone();
+        let execution_store = self.store.clone();
+        let report_store = self.store.clone();
 
         let outcomes = broker
             .execute_with(move |task| {
                 let gateway = gateway.clone();
                 let skills = skills.clone();
+                let store = execution_store.clone();
                 Box::pin(async move {
-                    let output = orchestrator::simulate_task(&gateway, &skills, task.clone()).await;
+                    let output = orchestrator::simulate_task(&gateway, &skills, &store, task.clone()).await;
+                    for record in &output.evidence {
+                        let _ = store.insert(record.clone()).await;
+                    }
                     output
                 })
             })
             .await?;
 
-        for outcome in &outcomes {
-            for record in &outcome.evidence {
-                store.insert(record.clone()).await;
-            }
-        }
-
-        Ok(self.reporter.compile(objective, contract, outcomes, store.snapshot().await))
+        Ok(self.reporter.compile(objective, &contract, outcomes, report_store.snapshot().await.unwrap_or_default()))
     }
 }
 

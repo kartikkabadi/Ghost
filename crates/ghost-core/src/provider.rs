@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub enum ProviderKind {
     OpenRouter,
     Xai,
@@ -10,8 +10,19 @@ pub enum ProviderKind {
     Exa,
 }
 
+impl ProviderKind {
+    pub fn slug(&self) -> &'static str {
+        match self {
+            Self::OpenRouter => "openRouter",
+            Self::Xai => "xai",
+            Self::Firecrawl => "firecrawl",
+            Self::Exa => "exa",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub enum ProviderCapability {
     Plan,
     Reason,

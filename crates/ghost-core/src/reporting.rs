@@ -1,27 +1,28 @@
 use crate::db::EvidenceRecord;
-use crate::orchestrator::{OrchestrationPlan, TaskExecutionOutcome};
-use crate::skills::SkillRegistry;
+use crate::orchestrator::{OrchestratorContract, TaskExecutionOutcome};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResearchClaim {
     pub id: String,
     pub claim: String,
-    pub confidence: f32,
+    pub confidence: f64,
     pub sources: Vec<String>,
     pub contradictions: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResearchReport {
     pub objective: String,
     pub summary: String,
     pub claims: Vec<ResearchClaim>,
     pub gaps: Vec<String>,
     pub next_queries: Vec<String>,
-    pub confidence_score: f32,
+    pub confidence_score: f64,
     pub generated_at: String,
 }
 
@@ -32,7 +33,7 @@ impl ReportingEngine {
     pub fn compile(
         &self,
         objective: String,
-        plan: OrchestrationPlan,
+        contract: &OrchestratorContract,
         outcomes: Vec<TaskExecutionOutcome>,
         evidence: Vec<EvidenceRecord>,
     ) -> ResearchReport {
@@ -48,7 +49,7 @@ impl ReportingEngine {
                 let confidence = if records.is_empty() {
                     0.0
                 } else {
-                    records.iter().map(|record| record.confidence).sum::<f32>() / records.len() as f32
+                    records.iter().map(|record| record.confidence).sum::<f64>() / records.len() as f64
                 };
                 let mut sources = Vec::new();
                 let mut contradictions = Vec::new();
@@ -66,7 +67,7 @@ impl ReportingEngine {
             })
             .collect::<Vec<_>>();
 
-        let mut next_queries = plan.next_queries.clone();
+        let mut next_queries = contract.next_queries.clone();
         if next_queries.is_empty() {
             next_queries.push(format!("Verify the objective '{}'", objective));
         }
@@ -87,14 +88,14 @@ impl ReportingEngine {
         let confidence_score = if claims.is_empty() {
             0.0
         } else {
-            claims.iter().map(|claim| claim.confidence).sum::<f32>() / claims.len() as f32
+            claims.iter().map(|claim| claim.confidence).sum::<f64>() / claims.len() as f64
         };
 
         ResearchReport {
             objective,
             summary,
             claims,
-            gaps: plan.gaps,
+            gaps: contract.gaps.clone(),
             next_queries,
             confidence_score,
             generated_at: timestamp(),

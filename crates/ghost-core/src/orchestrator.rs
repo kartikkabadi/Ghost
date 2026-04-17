@@ -1,4 +1,4 @@
-use crate::db::EvidenceRecord;
+use crate::db::{EvidenceGraph, EvidenceRecord};
 use crate::gateway::{ByokProviderGateway, GatewayRequest};
 use crate::provider::{ProviderCapability, ProviderKind};
 use crate::skills::{SkillRegistry, SkillSpec};
@@ -27,6 +27,7 @@ pub enum TaskKind {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Task {
     pub id: String,
     pub kind: TaskKind,
@@ -50,6 +51,7 @@ impl Task {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TaskExecutionOutcome {
     pub task_id: String,
     pub kind: TaskKind,
@@ -62,6 +64,7 @@ pub struct TaskExecutionOutcome {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OrchestrationPlan {
     pub objective: String,
     pub tasks: Vec<Task>,
@@ -78,9 +81,7 @@ impl OrchestrationPlan {
         let planner = Task {
             id: "plan-1".to_string(),
             kind: TaskKind::Plan,
-            skill_id: registry
-                .get("planner.openrouter")
-                .map(|skill| skill.id.clone()),
+            skill_id: registry.get("planner.openrouter").map(|skill| skill.id.clone()),
             provider: Some(ProviderKind::OpenRouter),
             input: json!({"objective": objective.clone()}),
             depends_on: Vec::new(),
@@ -89,6 +90,9 @@ impl OrchestrationPlan {
 
         for skill in registry.ordered_parallel_skills() {
             if matches!(&skill.capability, ProviderCapability::Plan) {
+                continue;
+            }
+            if skill.id == "verifier.xai" {
                 continue;
             }
             let task_id = format!("{}-task", skill.id.replace('.', "-"));
@@ -115,13 +119,27 @@ impl OrchestrationPlan {
             });
         }
 
+        let verifier_skill = registry.get("verifier.xai").or_else(|| registry.get("reasoner.xai"));
+        let verifier = Task {
+            id: "verify-1".to_string(),
+            kind: TaskKind::Verify,
+            skill_id: verifier_skill.map(|skill| skill.id.clone()),
+            provider: Some(ProviderKind::Xai),
+            input: json!({
+                "objective": objective.clone(),
+                "validationMode": "evidence_based",
+            }),
+            depends_on: investigation_task_ids.clone(),
+        };
+        tasks.push(verifier);
+
         let synthesis = Task {
             id: "synthesis-1".to_string(),
             kind: TaskKind::Synthesize,
             skill_id: registry.get("reasoner.xai").map(|skill| skill.id.clone()),
             provider: Some(ProviderKind::Xai),
             input: json!({"objective": objective.clone()}),
-            depends_on: investigation_task_ids.clone(),
+            depends_on: vec!["verify-1".to_string()],
         };
         tasks.push(synthesis);
 
@@ -151,18 +169,23 @@ impl OrchestrationPlan {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OrchestratorContract {
     pub objective: String,
-    pub plan: OrchestrationPlan,
+    pub tasks: Vec<Task>,
+    pub gaps: Vec<String>,
+    pub next_queries: Vec<String>,
     pub max_waves: usize,
 }
 
 impl OrchestratorContract {
     pub fn from_objective(objective: impl Into<String>, registry: &SkillRegistry) -> Self {
-        let objective = objective.into();
+        let plan = OrchestrationPlan::from_objective(objective, registry);
         Self {
-            plan: OrchestrationPlan::from_objective(objective.clone(), registry),
-            objective,
+            objective: plan.objective,
+            tasks: plan.tasks,
+            gaps: plan.gaps,
+            next_queries: plan.next_queries,
             max_waves: 8,
         }
     }
@@ -268,29 +291,27 @@ impl TaskBroker {
     }
 
     pub async fn execute_with(&self, executor: impl Fn(Task) -> TaskFuture + Send + Sync + 'static) -> Result<Vec<TaskExecutionOutcome>, OrchestratorError> {
-        self.scheduler.execute(self.contract.plan.tasks.clone(), Arc::new(executor)).await
+        self.scheduler.execute(self.contract.tasks.clone(), Arc::new(executor)).await
     }
 }
 
 pub async fn simulate_task(
     gateway: &ByokProviderGateway,
     skills: &SkillRegistry,
+    store: &EvidenceGraph,
     task: Task,
 ) -> TaskExecutionOutcome {
+    let task_id = task.id.clone();
     let kind = task.kind.clone();
     let provider = task.provider.clone();
-    let skill = task
-        .skill_id
-        .as_deref()
-        .and_then(|skill_id| skills.get(skill_id))
-        .cloned();
+    let skill = task.skill_id.as_deref().and_then(|skill_id| skills.get(skill_id)).cloned();
 
     let request: Option<GatewayRequest> = provider
         .clone()
         .map(|provider_kind| {
             let operation = skill
                 .as_ref()
-                .map(|skill_spec| skill_operation(skill_spec))
+                .map(skill_operation)
                 .unwrap_or_else(|| task.kind_name());
             gateway.plan_request(provider_kind, operation, task.input.clone()).ok()
         })
@@ -308,41 +329,46 @@ pub async fn simulate_task(
         TaskKind::Custom(label) => format!("Custom task '{}' executed", label),
     };
 
-    let claim = match &kind {
-        TaskKind::Plan => format!("{} split into orchestrated tasks", task.input.get("objective").and_then(Value::as_str).unwrap_or("objective")),
-        TaskKind::Search => "Candidate source set identified".to_string(),
-        TaskKind::Crawl => "Primary sources fetched for analysis".to_string(),
-        TaskKind::Extract => "Structured evidence extracted from source payloads".to_string(),
-        TaskKind::Enrich => "Supporting metadata attached to the source set".to_string(),
-        TaskKind::Verify => "Key claims were checked for consistency".to_string(),
-        TaskKind::Synthesize => "Validated findings were synthesized into a reportable frame".to_string(),
-        TaskKind::Report => "Final report payload assembled for review".to_string(),
-        TaskKind::Custom(label) => format!("Custom task '{}' completed", label),
+    let claim = if matches!(&kind, TaskKind::Verify) {
+        let objective = task.input.get("objective").and_then(Value::as_str).unwrap_or("unknown objective");
+        let records = store.records_for_objective(objective).await.unwrap_or_default();
+        let contradiction_count = records.iter().map(|record| record.contradictions.len()).sum::<usize>();
+        if records.is_empty() {
+            "No prior evidence was available for independent verification".to_string()
+        } else if contradiction_count == 0 {
+            format!("Verified {} evidence record(s) for {}", records.len(), objective)
+        } else {
+            format!("Verified {} evidence record(s) for {} with {} contradiction(s) noted", records.len(), objective, contradiction_count)
+        }
+    } else {
+        match &kind {
+            TaskKind::Plan => format!("{} split into orchestrated tasks", task.input.get("objective").and_then(Value::as_str).unwrap_or("objective")),
+            TaskKind::Search => "Candidate source set identified".to_string(),
+            TaskKind::Crawl => "Primary sources fetched for analysis".to_string(),
+            TaskKind::Extract => "Structured evidence extracted from source payloads".to_string(),
+            TaskKind::Enrich => "Supporting metadata attached to the source set".to_string(),
+            TaskKind::Synthesize => "Validated findings were synthesized into a reportable frame".to_string(),
+            TaskKind::Report => "Final report payload assembled for review".to_string(),
+            TaskKind::Custom(label) => format!("Custom task '{}' completed", label),
+            TaskKind::Verify => unreachable!(),
+        }
     };
 
-    let provider_name = provider.as_ref().map(|p| format!("{:?}", p)).unwrap_or_else(|| "local".to_string());
+    let provider_name = provider.as_ref().map(|p| p.slug().to_string()).unwrap_or_else(|| "local".to_string());
     let mut evidence = Vec::new();
     if matches!(&kind, TaskKind::Plan | TaskKind::Search | TaskKind::Crawl | TaskKind::Extract | TaskKind::Enrich | TaskKind::Verify | TaskKind::Synthesize | TaskKind::Report | TaskKind::Custom(_)) {
         evidence.push(EvidenceRecord {
-            id: format!("ev-{}", task.id),
-            objective: task
-                .input
-                .get("objective")
-                .and_then(Value::as_str)
-                .unwrap_or("unknown objective")
-                .to_string(),
-            task_id: task.id.clone(),
+            id: format!("ev-{}", task_id),
+            objective: task.input.get("objective").and_then(Value::as_str).unwrap_or("unknown objective").to_string(),
+            task_id: task_id.clone(),
             claim,
-            source: request
-                .as_ref()
-                .map(|req| req.url.clone())
-                .unwrap_or_else(|| provider_name.clone()),
+            source: request.as_ref().map(|req| req.url.clone()).unwrap_or_else(|| provider_name.clone()),
             provider: provider_name,
             confidence: match &kind {
                 TaskKind::Plan => 0.6,
                 TaskKind::Search | TaskKind::Crawl => 0.7,
                 TaskKind::Extract | TaskKind::Enrich => 0.75,
-                TaskKind::Verify => 0.85,
+                TaskKind::Verify => 0.9,
                 TaskKind::Synthesize => 0.8,
                 TaskKind::Report => 0.9,
                 TaskKind::Custom(_) => 0.5,
@@ -358,7 +384,7 @@ pub async fn simulate_task(
     }
 
     TaskExecutionOutcome {
-        task_id: task.id,
+        task_id,
         kind,
         provider,
         success: true,

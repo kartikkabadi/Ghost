@@ -6,6 +6,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GatewayRequest {
     pub provider: ProviderKind,
     pub operation: String,
@@ -16,6 +17,7 @@ pub struct GatewayRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GatewayResponse {
     pub provider: ProviderKind,
     pub operation: String,
@@ -81,7 +83,7 @@ impl ByokProviderGateway {
         let url = format!("{}/{}", target.base_url.trim_end_matches('/'), path.trim_start_matches('/'));
         let mut headers = BTreeMap::new();
         headers.insert("content-type".to_string(), "application/json".to_string());
-        headers.insert("x-byok-provider".to_string(), format!("{:?}", provider));
+        headers.insert("x-byok-provider".to_string(), provider.slug().to_string());
 
         Ok(GatewayRequest {
             provider,
