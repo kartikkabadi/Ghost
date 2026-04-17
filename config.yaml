@@ -1,0 +1,60 @@
+version: v16
+
+providers:
+  openrouter:
+    base_url: https://openrouter.ai/api/v1
+    default_operation: chat/completions
+  xai:
+    base_url: https://api.x.ai/v1
+    default_operation: chat/completions
+  firecrawl:
+    base_url: https://api.firecrawl.dev
+    default_operation: v2/extract
+  exa:
+    base_url: https://api.exa.ai
+    default_operation: search
+
+model_profiles:
+  - provider: xai
+    model: Grok 4.20 Multi-Agent beta
+    base_url: https://api.x.ai/v1
+    sdk_pattern: multi-agent
+    agent_modes: [4, 16]
+    specialization: scheduler
+    notes:
+      - wave planning
+      - tool orchestration
+  - provider: xai
+    model: Grok 4.20
+    base_url: https://api.x.ai/v1
+    sdk_pattern: chat-completions
+    agent_modes: [4]
+    specialization: reasoner
+    notes:
+      - synthesis fallback
+
+osint_primitives:
+  - id: recursive-search
+    title: Recursive source expansion
+    description: Expand seeds through pivots, dorks, and adjacent sources
+    inputs: [seed_queries, pivot_rules, depth_limit]
+    outputs: [expanded_queries, candidate_sources]
+    verificationChecks: [dedupe, source_diversity, contradiction_scan]
+  - id: dorking-library
+    title: Dorking template library
+    description: Reusable query templates for site, filetype, intitle, inurl, and social pivots
+    inputs: [domain, handle, keyword]
+    outputs: [search_templates]
+    verificationChecks: [template_coverage, abuse_guardrails]
+  - id: social-footprinting
+    title: Social footprinting
+    description: Username pivots and platform cross-checks for public identity trails
+    inputs: [handle, domain, aliases]
+    outputs: [platform_hits, pivots]
+    verificationChecks: [identity_consistency, source_overlap]
+  - id: metadata-cross-check
+    title: Metadata cross-check
+    description: Compare EXIF, document, image, video, OCR, timestamp, and location signals for mismatches
+    inputs: [artifact_url, metadata_fields]
+    outputs: [mismatch_report, verified_fields]
+    verificationChecks: [timestamp_alignment, location_alignment, author_alignment, device_alignment]
