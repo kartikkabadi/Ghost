@@ -12,7 +12,7 @@ pub use firecrawl::{FirecrawlClient, FirecrawlPage};
 pub use gateway::{ByokProviderGateway, GatewayError, GatewayRequest, GatewayResponse};
 pub use orchestrator::{OrchestrationPlan, OrchestratorContract, Task, TaskBroker, TaskExecutionOutcome, TaskKind, WaveScheduler};
 pub use provider::{ProviderCapability, ProviderKind, ProviderRuntime, ProviderTarget};
-pub use reporting::{ResearchClaim, ResearchReport, ReportingEngine};
+pub use reporting::{ResearchBlindSpot, ResearchClaim, ResearchReport, ReportingEngine};
 pub use skills::{SkillRegistry, SkillSpec};
 pub use verification::{VerificationFinding, VerificationMesh, VerificationMeshReport, VerificationStatus};
 

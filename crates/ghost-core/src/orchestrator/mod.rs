@@ -583,7 +583,7 @@ pub async fn simulate_task(
                 provider: provider_name.clone(),
                 confidence: 0.5,
                 contradictions: Vec::new(),
-                notes: skill.map(|spec| vec![format!("Skill: {}", spec.name)]).unwrap_or_default(),
+                notes: skill.as_ref().map(|spec| vec![format!("Skill: {}", spec.name.clone())]).unwrap_or_default(),
                 payload: json!({
                     "task": task.kind_name(),
                     "objective": objective,
@@ -605,7 +605,7 @@ pub async fn simulate_task(
             provider: provider_name.clone(),
             confidence: 0.6,
             contradictions: Vec::new(),
-            notes: skill.map(|spec| vec![format!("Skill: {}", spec.name)]).unwrap_or_default(),
+            notes: skill.as_ref().map(|spec| vec![format!("Skill: {}", spec.name.clone())]).unwrap_or_default(),
             payload: json!({
                 "task": task.kind_name(),
                 "objective": objective,
