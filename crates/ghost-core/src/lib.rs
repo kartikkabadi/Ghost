@@ -1,18 +1,24 @@
 pub mod db;
 pub mod firecrawl;
 pub mod gateway;
+// PR #10 blocker fix: metrics server graceful bind
+pub mod metrics;
 pub mod orchestrator;
 pub mod provider;
 pub mod reporting;
+// KAR-161: recursive search primitives
+pub mod search;
 pub mod skills;
 pub mod verification;
 
 pub use db::{EvidenceGraph, EvidenceRecord};
 pub use firecrawl::{FirecrawlClient, FirecrawlPage};
 pub use gateway::{ByokProviderGateway, GatewayError, GatewayRequest, GatewayResponse};
+pub use metrics::{MetricsHandle, MetricsServer};
 pub use orchestrator::{OrchestrationPlan, OrchestratorContract, Task, TaskBroker, TaskExecutionOutcome, TaskKind, WaveScheduler};
-pub use provider::{ProviderCapability, ProviderKind, ProviderRuntime, ProviderTarget};
+pub use provider::{Grok420ModelId, Grok420ModelMapper, Grok420SdkPattern, ProviderCapability, ProviderKind, ProviderRuntime, ProviderTarget};
 pub use reporting::{ResearchBlindSpot, ResearchClaim, ResearchReport, ReportingEngine};
+pub use search::{DepthRecord, PivotRule, RecursiveSearchConfig, RecursiveSearchEngine, RecursiveSearchResult};
 pub use skills::{SkillRegistry, SkillSpec};
 pub use verification::{VerificationFinding, VerificationMesh, VerificationMeshReport, VerificationStatus};
 
