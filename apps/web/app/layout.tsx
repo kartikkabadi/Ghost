@@ -1,9 +1,14 @@
+import './globals.css';
+
+export const metadata = {
+  title: 'Ghost Cockpit',
+  description: 'A monochrome research dashboard for the Ghost orchestration stack.'
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, background: "#0a0a0a", color: "#fafafa", fontFamily: "ui-sans-serif, system-ui" }}>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
