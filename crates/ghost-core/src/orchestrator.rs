@@ -88,11 +88,11 @@ impl OrchestrationPlan {
         tasks.push(planner);
 
         for skill in registry.ordered_parallel_skills() {
-            if matches!(skill.capability, ProviderCapability::Plan) {
+            if matches!(&skill.capability, ProviderCapability::Plan) {
                 continue;
             }
             let task_id = format!("{}-task", skill.id.replace('.', "-"));
-            let kind = match skill.capability {
+            let kind = match &skill.capability {
                 ProviderCapability::Search => TaskKind::Search,
                 ProviderCapability::Crawl => TaskKind::Crawl,
                 ProviderCapability::Extract => TaskKind::Extract,
@@ -107,9 +107,9 @@ impl OrchestrationPlan {
                 provider: Some(skill.provider.clone()),
                 input: json!({
                     "objective": objective.clone(),
-                    "skill": skill.id,
-                    "capability": format!("{:?}", skill.capability),
-                    "tags": skill.tags,
+                    "skill": skill.id.clone(),
+                    "capability": format!("{:?}", &skill.capability),
+                    "tags": skill.tags.clone(),
                 }),
                 depends_on: vec!["plan-1".to_string()],
             });
@@ -373,7 +373,7 @@ pub async fn simulate_task(
 }
 
 fn skill_operation(skill: &SkillSpec) -> String {
-    match skill.capability {
+    match &skill.capability {
         ProviderCapability::Plan => "chat/completions".to_string(),
         ProviderCapability::Reason => "chat/completions".to_string(),
         ProviderCapability::Search => "search".to_string(),
