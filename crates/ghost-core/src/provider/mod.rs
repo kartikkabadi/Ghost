@@ -60,14 +60,79 @@ impl ProviderTarget {
     }
 }
 
+
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelProfile {
+    pub provider: ProviderKind,
+    pub model: String,
+    pub base_url: String,
+    pub sdk_pattern: String,
+    pub agent_modes: Vec<u8>,
+    pub specialization: Option<String>,
+    pub notes: Vec<String>,
+}
+
+impl ModelProfile {
+    pub fn new(
+        provider: ProviderKind,
+        model: impl Into<String>,
+        base_url: impl Into<String>,
+        sdk_pattern: impl Into<String>,
+        agent_modes: Vec<u8>,
+        specialization: Option<String>,
+        notes: Vec<String>,
+    ) -> Self {
+        Self {
+            provider,
+            model: model.into(),
+            base_url: base_url.into(),
+            sdk_pattern: sdk_pattern.into(),
+            agent_modes,
+            specialization,
+            notes,
+        }
+    }
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProviderRuntime {
     pub targets: HashMap<ProviderKind, ProviderTarget>,
+    pub models: Vec<ModelProfile>,
 }
 
 impl ProviderRuntime {
     pub fn new(targets: HashMap<ProviderKind, ProviderTarget>) -> Self {
-        Self { targets }
+        Self {
+            targets,
+            models: Self::default_models(),
+        }
+    }
+
+    pub fn default_models() -> Vec<ModelProfile> {
+        vec![
+            ModelProfile::new(
+                ProviderKind::Xai,
+                "Grok 4.20 Multi-Agent beta",
+                "https://api.x.ai/v1",
+                "multi-agent",
+                vec![4, 16],
+                Some("scheduler".to_string()),
+                vec![
+                    "Choose for wave planning".to_string(),
+                    "Use for 4-agent and 16-agent execution modes".to_string(),
+                ],
+            ),
+            ModelProfile::new(
+                ProviderKind::Xai,
+                "Grok 4.20",
+                "https://api.x.ai/v1",
+                "chat-completions",
+                vec![4],
+                Some("reasoner".to_string()),
+                vec!["Fallback synthesis profile".to_string()],
+            ),
+        ]
     }
 
     pub fn default_targets() -> HashMap<ProviderKind, ProviderTarget> {
@@ -76,7 +141,7 @@ impl ProviderRuntime {
                 ProviderKind::OpenRouter,
                 ProviderTarget::new(
                     ProviderKind::OpenRouter,
-                    "https://openrouter.ai",
+                    "https://openrouter.ai/api/v1",
                     "OPENROUTER_API_KEY",
                     "chat/completions",
                     vec![ProviderCapability::Plan, ProviderCapability::Reason, ProviderCapability::Report],
@@ -86,7 +151,7 @@ impl ProviderRuntime {
                 ProviderKind::Xai,
                 ProviderTarget::new(
                     ProviderKind::Xai,
-                    "https://api.x.ai",
+                    "https://api.x.ai/v1",
                     "XAI_API_KEY",
                     "chat/completions",
                     vec![ProviderCapability::Plan, ProviderCapability::Reason, ProviderCapability::Report],
@@ -115,6 +180,14 @@ impl ProviderRuntime {
         ])
     }
 
+    pub fn model_profiles(&self) -> &[ModelProfile] {
+        &self.models
+    }
+
+    pub fn grok_420_profile(&self) -> Option<&ModelProfile> {
+        self.models.iter().find(|profile| profile.model == "Grok 4.20 Multi-Agent beta")
+    }
+
     pub fn target(&self, kind: &ProviderKind) -> Option<&ProviderTarget> {
         self.targets.get(kind)
     }
@@ -128,6 +201,7 @@ impl Default for ProviderRuntime {
     fn default() -> Self {
         Self {
             targets: Self::default_targets(),
+            models: Self::default_models(),
         }
     }
 }
