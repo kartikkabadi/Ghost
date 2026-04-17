@@ -124,6 +124,18 @@ impl SkillRegistry {
             output_keys: vec!["results".to_string()],
             parallelizable: true,
         });
+
+        registry.register(SkillSpec {
+            id: "grok420.scheduler".to_string(),
+            name: "Grok 4.20 Scheduler".to_string(),
+            description: "Maps Grok 4.20 Multi-Agent beta into 4-agent and 16-agent wave execution and report routing".to_string(),
+            provider: ProviderKind::Xai,
+            capability: ProviderCapability::Plan,
+            tags: vec!["grok".to_string(), "multi-agent".to_string(), "scheduler".to_string()],
+            input_keys: vec!["objective".to_string(), "agent_mode".to_string(), "model_profile".to_string()],
+            output_keys: vec!["wave_plan".to_string(), "routing_notes".to_string()],
+            parallelizable: true,
+        });
         registry
     }
 }
