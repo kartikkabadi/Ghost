@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "jsx": "preserve",
+    "baseUrl": ".",
+    "paths": {
+      "@ghost/contracts": ["packages/contracts/src"],
+      "@ghost/contracts/*": ["packages/contracts/src/*"]
+    }
+  }
+}

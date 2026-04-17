@@ -1,0 +1,9 @@
+{
+  "name": "ghost-osint-harness",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "bun --cwd apps/web dev",
+    "build": "bun --cwd apps/web build"
+  }
+}
