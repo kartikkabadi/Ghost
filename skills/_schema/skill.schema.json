@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ghost Skill Schema",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "version",
+    "kind",
+    "summary",
+    "capabilities",
+    "inputs",
+    "outputs",
+    "tools"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "coordinator",
+        "worker",
+        "verifier",
+        "reporter",
+        "utility"
+      ]
+    },
+    "domain": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "inputs": {
+      "type": "object"
+    },
+    "outputs": {
+      "type": "object"
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "prerequisites": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "triggers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "confidence_policy": {
+      "type": "string"
+    },
+    "handoff": {
+      "type": "object"
+    },
+    "fallback": {
+      "type": "string"
+    },
+    "telemetry": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "owner": {
+      "type": "string"
+    },
+    "language": {
+      "type": "string"
+    },
+    "runtime": {
+      "type": "string"
+    },
+    "memory_scope": {
+      "type": "string"
+    },
+    "evidence_policy": {
+      "type": "object"
+    },
+    "output_schema_ref": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}
