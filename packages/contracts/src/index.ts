@@ -126,3 +126,32 @@ export interface ProviderRoute {
   target: string;
   operation: string;
 }
+
+
+export type AgentMode = 4 | 16;
+
+export interface ModelProfile {
+  provider: ProviderKind;
+  model: string;
+  baseUrl: string;
+  sdkPattern: 'chat-completions' | 'multi-agent' | 'search';
+  agentModes: AgentMode[];
+  specialization?: string;
+  notes?: string[];
+}
+
+export interface OsintPrimitive {
+  id: string;
+  title: string;
+  description: string;
+  inputs: string[];
+  outputs: string[];
+  verificationChecks: string[];
+}
+
+export interface RuntimeConfig {
+  version: string;
+  providers: Record<ProviderKind, { baseUrl: string; defaultOperation: string }>;
+  modelProfiles: ModelProfile[];
+  osintPrimitives: OsintPrimitive[];
+}
