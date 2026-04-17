@@ -124,6 +124,29 @@ impl SkillRegistry {
             output_keys: vec!["results".to_string()],
             parallelizable: true,
         });
+
+        registry.register(SkillSpec {
+            id: "recursive-search.exa".to_string(),
+            name: "Recursive Search".to_string(),
+            description: "Expands seeds through recursive search, dorking templates, and social footprint pivots".to_string(),
+            provider: ProviderKind::Exa,
+            capability: ProviderCapability::Search,
+            tags: vec!["osint".to_string(), "recursive".to_string(), "dorking".to_string(), "pivot".to_string()],
+            input_keys: vec!["seed_queries".to_string(), "pivot_rules".to_string(), "depth_limit".to_string()],
+            output_keys: vec!["expanded_queries".to_string(), "candidate_sources".to_string()],
+            parallelizable: true,
+        });
+        registry.register(SkillSpec {
+            id: "metadata.cross-check".to_string(),
+            name: "Metadata Cross Check".to_string(),
+            description: "Cross verifies EXIF, docs, images, video, OCR, and timestamp or location mismatches".to_string(),
+            provider: ProviderKind::Xai,
+            capability: ProviderCapability::Enrich,
+            tags: vec!["osint".to_string(), "metadata".to_string(), "exif".to_string(), "ocr".to_string()],
+            input_keys: vec!["artifact_url".to_string(), "metadata_fields".to_string()],
+            output_keys: vec!["mismatch_report".to_string(), "verified_fields".to_string()],
+            parallelizable: true,
+        });
         registry
     }
 }
