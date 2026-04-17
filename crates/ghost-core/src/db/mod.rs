@@ -15,7 +15,10 @@ pub struct EvidenceRecord {
     pub source: String,
     pub provider: String,
     pub confidence: f64,
+    // PR #10 blocker: missing serde defaults – empty vec on missing field
+    #[serde(default)]
     pub contradictions: Vec<String>,
+    #[serde(default)]
     pub notes: Vec<String>,
     pub payload: Value,
     pub generated_at: String,
@@ -79,6 +82,51 @@ impl EvidenceGraph {
                 ],
             )?;
             Ok(())
+        })
+    }
+
+    /// PR #10 blocker fix: non-atomic bulk deletes / inserts.
+    /// Wraps N inserts inside an explicit transaction; the entire batch is
+    /// rolled back if any single row fails – no partial writes.
+    pub async fn bulk_insert_records(&self, records: Vec<EvidenceRecord>) -> SqlResult<()> {
+        self.with_connection(|conn| {
+            self.ensure_schema(conn)?;
+            // Begin explicit transaction to make the batch atomic
+            conn.execute_batch("BEGIN DEFERRED")?;
+            let result = (|| -> SqlResult<()> {
+                for record in &records {
+                    conn.execute(
+                        "INSERT OR REPLACE INTO evidence_records (
+                            id, objective, task_id, claim, source, provider, confidence,
+                            contradictions, notes, payload, generated_at
+                        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                        params![
+                            record.id,
+                            record.objective,
+                            record.task_id,
+                            record.claim,
+                            record.source,
+                            record.provider,
+                            record.confidence,
+                            serde_json::to_string(&record.contradictions).unwrap_or_else(|_| "[]".to_string()),
+                            serde_json::to_string(&record.notes).unwrap_or_else(|_| "[]".to_string()),
+                            serde_json::to_string(&record.payload).unwrap_or_else(|_| "null".to_string()),
+                            record.generated_at,
+                        ],
+                    )?;
+                }
+                Ok(())
+            })();
+            match result {
+                Ok(()) => {
+                    conn.execute_batch("COMMIT")?;
+                    Ok(())
+                }
+                Err(e) => {
+                    let _ = conn.execute_batch("ROLLBACK");
+                    Err(e)
+                }
+            }
         })
     }
 

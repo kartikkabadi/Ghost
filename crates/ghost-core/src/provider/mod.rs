@@ -1,5 +1,9 @@
+//! Provider abstractions and KAR-160: Grok 4.20 model mapping.
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+// ─── Provider kinds & capabilities ───────────────────────────────────────────
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -60,79 +64,14 @@ impl ProviderTarget {
     }
 }
 
-
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelProfile {
-    pub provider: ProviderKind,
-    pub model: String,
-    pub base_url: String,
-    pub sdk_pattern: String,
-    pub agent_modes: Vec<u8>,
-    pub specialization: Option<String>,
-    pub notes: Vec<String>,
-}
-
-impl ModelProfile {
-    pub fn new(
-        provider: ProviderKind,
-        model: impl Into<String>,
-        base_url: impl Into<String>,
-        sdk_pattern: impl Into<String>,
-        agent_modes: Vec<u8>,
-        specialization: Option<String>,
-        notes: Vec<String>,
-    ) -> Self {
-        Self {
-            provider,
-            model: model.into(),
-            base_url: base_url.into(),
-            sdk_pattern: sdk_pattern.into(),
-            agent_modes,
-            specialization,
-            notes,
-        }
-    }
-}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProviderRuntime {
     pub targets: HashMap<ProviderKind, ProviderTarget>,
-    pub models: Vec<ModelProfile>,
 }
 
 impl ProviderRuntime {
     pub fn new(targets: HashMap<ProviderKind, ProviderTarget>) -> Self {
-        Self {
-            targets,
-            models: Self::default_models(),
-        }
-    }
-
-    pub fn default_models() -> Vec<ModelProfile> {
-        vec![
-            ModelProfile::new(
-                ProviderKind::Xai,
-                "Grok 4.20 Multi-Agent beta",
-                "https://api.x.ai/v1",
-                "multi-agent",
-                vec![4, 16],
-                Some("scheduler".to_string()),
-                vec![
-                    "Choose for wave planning".to_string(),
-                    "Use for 4-agent and 16-agent execution modes".to_string(),
-                ],
-            ),
-            ModelProfile::new(
-                ProviderKind::Xai,
-                "Grok 4.20",
-                "https://api.x.ai/v1",
-                "chat-completions",
-                vec![4],
-                Some("reasoner".to_string()),
-                vec!["Fallback synthesis profile".to_string()],
-            ),
-        ]
+        Self { targets }
     }
 
     pub fn default_targets() -> HashMap<ProviderKind, ProviderTarget> {
@@ -141,7 +80,7 @@ impl ProviderRuntime {
                 ProviderKind::OpenRouter,
                 ProviderTarget::new(
                     ProviderKind::OpenRouter,
-                    "https://openrouter.ai/api/v1",
+                    "https://openrouter.ai",
                     "OPENROUTER_API_KEY",
                     "chat/completions",
                     vec![ProviderCapability::Plan, ProviderCapability::Reason, ProviderCapability::Report],
@@ -151,7 +90,7 @@ impl ProviderRuntime {
                 ProviderKind::Xai,
                 ProviderTarget::new(
                     ProviderKind::Xai,
-                    "https://api.x.ai/v1",
+                    "https://api.x.ai",
                     "XAI_API_KEY",
                     "chat/completions",
                     vec![ProviderCapability::Plan, ProviderCapability::Reason, ProviderCapability::Report],
@@ -180,14 +119,6 @@ impl ProviderRuntime {
         ])
     }
 
-    pub fn model_profiles(&self) -> &[ModelProfile] {
-        &self.models
-    }
-
-    pub fn grok_420_profile(&self) -> Option<&ModelProfile> {
-        self.models.iter().find(|profile| profile.model == "Grok 4.20 Multi-Agent beta")
-    }
-
     pub fn target(&self, kind: &ProviderKind) -> Option<&ProviderTarget> {
         self.targets.get(kind)
     }
@@ -201,7 +132,122 @@ impl Default for ProviderRuntime {
     fn default() -> Self {
         Self {
             targets: Self::default_targets(),
-            models: Self::default_models(),
         }
+    }
+}
+
+// ─── KAR-160: Grok 4.20 model mapping ────────────────────────────────────────
+
+/// SDK dispatch pattern for a xAI model request.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Grok420SdkPattern {
+    /// Standard OpenAI-compatible `chat/completions` endpoint.
+    ChatCompletions,
+    /// xAI multi-agent `responses` API – carries `agent_count` and
+    /// `reasoning_effort` in the request body.
+    MultiAgent,
+}
+
+/// Canonical information resolved from any Grok 4.20 model ID alias.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Grok420ModelId {
+    /// The canonical, unambiguous xAI model identifier to send in the request.
+    pub canonical_id: String,
+    /// Which SDK dispatch pattern to use when calling this model.
+    pub sdk_pattern: Grok420SdkPattern,
+    /// Recommended agent count for multi-agent dispatch (4 = focused, 16 = deep).
+    pub agent_count: Option<u8>,
+    /// Whether to enable extended reasoning for this model variant.
+    pub reasoning_effort: Option<String>,
+}
+
+/// Maps all known Grok 4.20 alias strings to a canonical `Grok420ModelId`.
+/// Addresses KAR-160: Grok 4.20 mapping.
+pub struct Grok420ModelMapper;
+
+impl Grok420ModelMapper {
+    /// Resolve an arbitrary Grok 4.20 model alias (user-supplied or from config)
+    /// to its canonical form.
+    ///
+    /// Returns `None` if the alias is not a recognised Grok 4.20 variant.
+    pub fn resolve(model_id: &str) -> Option<Grok420ModelId> {
+        let normalised = model_id.trim().to_lowercase();
+        let normalised = normalised
+            .replace("grok-420", "grok-4.20")  // normalise dash-only form
+            .replace("grok420", "grok-4.20");   // normalise compact form
+
+        match normalised.as_str() {
+            // ── Standard reasoning variants ──────────────────────────────────
+            "grok-4.20"
+            | "grok-4.20-0309"
+            | "grok-4.20-0309-reasoning"
+            | "grok-4.20-reasoning" => Some(Grok420ModelId {
+                canonical_id: "grok-4.20-0309-reasoning".to_string(),
+                sdk_pattern: Grok420SdkPattern::ChatCompletions,
+                agent_count: None,
+                reasoning_effort: Some("high".to_string()),
+            }),
+
+            // ── Fast / low-latency variant ───────────────────────────────────
+            "grok-4.20-fast" | "grok-4.20-fast-0309" => Some(Grok420ModelId {
+                canonical_id: "grok-4.20-fast".to_string(),
+                sdk_pattern: Grok420SdkPattern::ChatCompletions,
+                agent_count: None,
+                reasoning_effort: Some("low".to_string()),
+            }),
+
+            // ── Multi-agent / beta variants ──────────────────────────────────
+            "grok-4.20-multi-agent"
+            | "grok-4.20-beta"
+            | "grok-4.20-multi-agent-beta" => Some(Grok420ModelId {
+                canonical_id: "grok-4.20-multi-agent".to_string(),
+                sdk_pattern: Grok420SdkPattern::MultiAgent,
+                agent_count: Some(4),
+                reasoning_effort: Some("medium".to_string()),
+            }),
+
+            _ => None,
+        }
+    }
+
+    /// Build the `model` and `agent_count` / `reasoning_effort` fields for the
+    /// xAI API request body, given a resolved `Grok420ModelId`.
+    pub fn dispatch_request(
+        model: &Grok420ModelId,
+        base_body: serde_json::Value,
+    ) -> serde_json::Value {
+        let mut body = match base_body {
+            serde_json::Value::Object(m) => m,
+            _ => serde_json::Map::new(),
+        };
+
+        body.insert(
+            "model".to_string(),
+            serde_json::Value::String(model.canonical_id.clone()),
+        );
+
+        if model.sdk_pattern == Grok420SdkPattern::MultiAgent {
+            if let Some(count) = model.agent_count {
+                body.insert(
+                    "agent_count".to_string(),
+                    serde_json::Value::Number(count.into()),
+                );
+            }
+        }
+
+        if let Some(effort) = &model.reasoning_effort {
+            body.insert(
+                "reasoning_effort".to_string(),
+                serde_json::Value::String(effort.clone()),
+            );
+        }
+
+        serde_json::Value::Object(body)
+    }
+
+    /// Return `true` if `model_id` is any recognised Grok 4.20 alias.
+    pub fn is_grok_420(model_id: &str) -> bool {
+        Self::resolve(model_id).is_some()
     }
 }
