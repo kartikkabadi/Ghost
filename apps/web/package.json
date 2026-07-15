@@ -1,6 +1,7 @@
 {
   "name": "ghost-web",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "next dev",
@@ -11,5 +12,12 @@
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.17.6",
+    "@types/react": "19.2.17",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.5.20",
+    "typescript": "^5.8.2"
   }
 }
